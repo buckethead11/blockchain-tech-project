@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { web3, auctionContract } from '../web3';
+import { auctionContract, web3 } from '../web3';
 
 const PriceDisplay = () => {
   const [priceInfo, setPriceInfo] = useState({
@@ -10,11 +10,10 @@ const PriceDisplay = () => {
     endTime: 0,
     decreaseInterval: 0,
     decreaseRate: 0,
-    isInitialized: false
   });
 
   const calculateCurrentPrice = (now) => {
-    if (!priceInfo.isInitialized) return 0;
+    if (!priceInfo.startTime) return 0;
 
     const elapsedSeconds = now - priceInfo.startTime;
     const intervals = Math.floor(elapsedSeconds / priceInfo.decreaseInterval);
@@ -30,22 +29,6 @@ const PriceDisplay = () => {
     const updatePrice = async () => {
       try {
         if (!auctionContract) return;
-
-        const isInitialized = await auctionContract.methods.isInitialized().call();
-        if (!isInitialized) {
-          // Reset the price info state when auction is not initialized
-          setPriceInfo({
-            currentPrice: 0,
-            initialPrice: 0,
-            reservePrice: 0,
-            startTime: 0,
-            endTime: 0,
-            decreaseInterval: 0,
-            decreaseRate: 0,
-            isInitialized: false  // This will trigger the loading state
-          });
-          return;
-        }
     
         // Get contract values
         const initialPriceBN = await auctionContract.methods.initialPrice().call();
@@ -86,7 +69,6 @@ const PriceDisplay = () => {
           endTime: Number(endTime),
           decreaseInterval: Number(decreaseInterval),
           decreaseRate,
-          isInitialized: true
         });
       } catch (error) {
         console.error("Error updating price:", error);
@@ -94,32 +76,15 @@ const PriceDisplay = () => {
     };
 
     // Update immediately and then every second
-    updatePrice();
-    const interval = setInterval(updatePrice, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (auctionContract) {
+      updatePrice();
+      const interval = setInterval(updatePrice, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [auctionContract, web3]);
 
 
-  // Separate interval for UI updates
-  useEffect(() => {
-    if (!priceInfo.isInitialized) return;
-
-    const updatePrice = () => {
-      const now = Math.floor(Date.now() / 1000);
-      const currentPrice = calculateCurrentPrice(now);
-      setPriceInfo(prev => ({
-        ...prev,
-        currentPrice
-      }));
-    };
-
-    const uiInterval = setInterval(updatePrice, 1000);
-    return () => clearInterval(uiInterval);
-  }, [priceInfo.isInitialized, priceInfo.initialPrice, priceInfo.decreaseRate, priceInfo.decreaseInterval]);
-
-  const timeUntilNextDecrease = () => {
-    if (!priceInfo.isInitialized) return 0;
-    
+  const timeUntilNextDecrease = () => {    
     const now = Math.floor(Date.now() / 1000);
     const elapsedSeconds = now - priceInfo.startTime;
     const currentInterval = Math.floor(elapsedSeconds / priceInfo.decreaseInterval);
@@ -128,15 +93,6 @@ const PriceDisplay = () => {
   };
 
   // If not initialized, show loading state
-  if (!priceInfo.isInitialized) {
-    return (
-      <div className="p-4 bg-background text-textWhite rounded-lg w-4/5 h-4/5">
-        <h2 className="text-2xl font-bold mb-4">Current Price</h2>
-        <p>Loading auction data...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="p-4 bg-background text-textWhite rounded-lg w-4/5 h-4/5">
       <h2 className="text-2xl font-bold mb-4">Current Price</h2>

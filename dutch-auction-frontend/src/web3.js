@@ -9,19 +9,13 @@ const init = async () => {
 
     try {
         const accounts = await web3.eth.getAccounts();
-        const deployerAccount = accounts[9];
+        const deployerAccount = accounts[0];
         console.log("Available accounts:", accounts);
         console.log("Deployer account:", deployerAccount);
 
-        const deployedAddress = '0x2b25941e67280A937589e407Ff22A3E34746B4EC';
-        auctionContract = new web3.eth.Contract(DutchAuction.abi, deployedAddress);
+       
+        console.log("Contract seller:", deployerAccount);
 
-        const seller = await auctionContract.methods.seller().call();
-        console.log("Contract seller:", seller);
-        console.log("Is deployer the seller?", deployerAccount.toLowerCase() === seller.toLowerCase());
-
-        console.log("Contract initialized at:", deployedAddress);
-        console.log("Contract methods:", Object.keys(auctionContract.methods));
 
         web3.eth.defaultAccount = deployerAccount;
 

@@ -10,9 +10,13 @@ import { WalletProvider } from './context/WalletContext';
 import MetaMaskLogin from './components/MetamaskLogin';
 import Modal from './components/Modal';
 import SellerForm from './components/SellerForm';
-import { web3, auctionContract, init } from './web3';
+import Web3 from 'web3';
+import { init } from './web3';
+import AuctionTokenABI from './AuctionToken.json';
+import DutchAuctionABI from './DutchAuction.json';
 
 function App() {
+  let web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
   const [auctionData, setAuctionData] = useState({
     tokenName: '',
     totalSupply: 0,
@@ -27,16 +31,15 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
+  const [auctionContract, setAuctionContract] = useState();
 
   // Define loadAuctionData outside useEffect
   async function loadAuctionData() {
+    if (!auctionContract) {
+      console.log("No auction contract available");
+      return;
+    }
     try {
-
-      if (!auctionContract) {
-        console.log("Contract not initialized yet");
-        return;
-      }
-  
       // Retrieve values from the contract
       const initialPriceBN = await auctionContract.methods.initialPrice().call();
       const currentPriceBN = await auctionContract.methods.currentPrice().call();
@@ -97,7 +100,7 @@ function App() {
     loadAuctionData();
     const timer = setInterval(loadAuctionData, 1000); // Refresh data every second
     return () => clearInterval(timer); // Cleanup on component unmount
-  }, []);
+  }, [auctionContract]);
 
   useEffect(() => {
     const initializeContract = async () => {
@@ -113,12 +116,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isContractReady) {
       loadAuctionData();
-      const timer = setInterval(loadAuctionData, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [isContractReady]);
+    
+  }, [auctionContract]);
 
 
 
@@ -130,26 +130,6 @@ function App() {
         setIsLoading(true);
         const accounts = await web3.eth.getAccounts();
         const sellerAccount = accounts[0]; // Use first connected account
-
-        // Debug checks before initialization
-        console.log("=== PRE-INITIALIZATION CHECKS ===");
-        const contractSeller = await auctionContract.methods.seller().call();
-        const isInitialized = await auctionContract.methods.isInitialized().call();
-        
-        console.log("Contract Address:", auctionContract.options.address);
-        console.log("Seller Account:", sellerAccount);
-        console.log("Contract Seller:", contractSeller);
-        console.log("Is Initialized:", isInitialized);
-
-        // Verify seller
-        if (sellerAccount.toLowerCase() !== contractSeller.toLowerCase()) {
-            throw new Error("Connected account is not the seller");
-        }
-
-        // Verify not initialized
-        if (isInitialized) {
-            throw new Error("Auction is already initialized");
-        }
 
         // Convert ETH values to wei
         const initialPriceWei = web3.utils.toWei(initialPrice.toString(), 'ether');
@@ -177,39 +157,44 @@ function App() {
             totalTokens
         });
 
-        // Try to estimate gas first
-        const gasEstimate = await auctionContract.methods.initializeAuction(
-            initialPriceWei,
-            reservePriceWei,
-            priceDecreaseRate,
-            priceDecreaseInterval,
-            duration,
-            totalTokens
-        ).estimateGas({ from: sellerAccount });
-
-        console.log("Estimated gas:", gasEstimate);
-
-        const gasLimit = Number(gasEstimate) * 1.5;
+      console.log("setting up tokens");
 
 
+
+        // const DutchAuction = artifacts.require("DutchAuction");
+        // const AuctionToken = artifacts.require("AuctionToken");
+
+        const AuctionToken = new web3.eth.Contract(AuctionTokenABI.abi);
+
+        const tokenInstance = await AuctionToken.deploy({
+          data: AuctionTokenABI.bytecode,
+          arguments: [totalTokens],
+      }).send({ from: sellerAccount ,  gas: 5000000 });
         // Call contract function with estimated gas
-        const tx = await auctionContract.methods.initializeAuction(
-            initialPriceWei,
-            reservePriceWei,
-            priceDecreaseRate,
-            priceDecreaseInterval,
-            duration,
-            totalTokens
-        ).send({ 
-            from: sellerAccount,
-            gas: Math.floor(gasLimit) // Add 50% buffer to gas estimate
-        });
+      console.log("setting up auction");
+      const tokenAddress = tokenInstance.options.address?.toString();
 
-        console.log("Transaction successful:", tx);
+      const DutchAuction = new web3.eth.Contract(DutchAuctionABI.abi);
+      const auctionContract = await DutchAuction.deploy({
+        data: DutchAuctionABI.bytecode,
+        arguments: [
+          tokenAddress,
+          initialPriceWei,
+          reservePriceWei,
+          priceDecreaseRate,
+          priceDecreaseInterval,
+          duration,
+          totalTokens,
+        ],
+      }).send({ from: sellerAccount, gas: 6000000 });
+      console.log("Contract deployed");
+        
+       setAuctionContract(auctionContract);
+      
+
+        console.log("Contract Deployed At:", auctionContract.options.address);
         
         // Verify initialization
-        const isInitializedAfter = await auctionContract.methods.isInitialized().call();
-        console.log("Initialization status after:", isInitializedAfter);
 
         setNotifications(prev => [...prev, { 
             type: 'success', 
@@ -244,67 +229,8 @@ function App() {
 }
 
   async function resetAuction() {
-    try {
-        setIsLoading(true);
-        const accounts = await web3.eth.getAccounts();
-        const sellerAccount = accounts[0]; // Use first connected account
-
-        console.log("Attempting to reset auction...");
-        console.log("Seller account:", sellerAccount);
-
-        // Check if seller
-        const contractSeller = await auctionContract.methods.seller().call();
-        if (sellerAccount.toLowerCase() !== contractSeller.toLowerCase()) {
-            throw new Error("Connected account is not the seller");
-        }
-
-        // Estimate gas for the reset
-        const gasEstimate = await auctionContract.methods.resetAuction()
-            .estimateGas({ from: sellerAccount });
-
-        console.log("Gas estimate for reset:", gasEstimate);
-
-        const gasLimit = Number(gasEstimate) * 1.5
-        // Call the reset function
-        const tx = await auctionContract.methods.resetAuction()
-            .send({ 
-                from: sellerAccount,
-                gas: Math.floor(gasLimit) // Add 50% buffer
-            });
-
-        console.log("Reset transaction:", tx);
-
-        // Verify reset
-        const isInitialized = await auctionContract.methods.isInitialized().call();
-        console.log("Is initialized after reset:", isInitialized);
-
-        setNotifications(prev => [...prev, { 
-            type: 'success', 
-            message: 'Auction reset successfully' 
-        }]);
-
-        await loadAuctionData();
-
-    } catch (error) {
-        console.error('Error resetting auction:', error);
-        setNotifications(prev => [...prev, { 
-            type: 'error', 
-            message: `Failed to reset auction: ${error.message}` 
-        }]);
-    } finally {
-        setIsLoading(false);
-    }
-  }
-
-  const removeNotification = () => {
-    setNotifications((prev) => prev.slice(1));
+        
   };
-
-  useEffect(() => {
-    if (auctionEnded && !showDistribution) {
-      setShowDistribution(true);
-    }
-  }, [auctionEnded]);
 
 
 
@@ -331,7 +257,7 @@ function App() {
                   <AuctionInfo auctionEnded={auctionEnded} auctionData={auctionData} />
                 </div>
                 <div className="bg-primary p-4 rounded-lg shadow">
-                  <PriceDisplay currentPrice={currentPrice} />
+                  <PriceDisplay currentPrice={currentPrice} auctionContract={auctionContract?.options?.address} web3={web3}/>
                 </div>
                 <div className="bg-primary p-4 rounded-lg shadow">
                   <BidForm currentPrice={currentPrice} onBidPlaced={handleBidPlaced}/>
