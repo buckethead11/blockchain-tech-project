@@ -10,11 +10,11 @@ const init = async () => {
     try {
         const accounts = await web3.eth.getAccounts();
         const deployerAccount = accounts[0];
-        console.log("Available accounts:", accounts);
-        console.log("Deployer account:", deployerAccount);
+        // console.log("Available accounts:", accounts);
+        // console.log("Deployer account:", deployerAccount);
 
        
-        console.log("Contract seller:", deployerAccount);
+        // console.log("Contract seller:", deployerAccount);
 
 
         web3.eth.defaultAccount = deployerAccount;

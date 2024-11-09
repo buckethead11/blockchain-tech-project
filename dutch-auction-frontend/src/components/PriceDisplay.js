@@ -33,7 +33,7 @@ const PriceDisplay = ({auctionContract, web3}) => {
             return;
           }
 
-        console.log("Updating price from contract:", auctionContract.options.address);
+        // console.log("Updating price from contract:", auctionContract.options.address);
     
         // Get contract values
         const initialPriceBN = await auctionContract.methods.initialPrice().call();
@@ -57,14 +57,14 @@ const PriceDisplay = ({auctionContract, web3}) => {
           reservePrice
         );
 
-        console.log("Price Update:", {
-          currentPrice,
-          initialPrice,
-          reservePrice,
-          decreaseRate,
-          intervals,
-          elapsedSeconds
-        });
+        // console.log("Price Update:", {
+        //   currentPrice,
+        //   initialPrice,
+        //   reservePrice,
+        //   decreaseRate,
+        //   intervals,
+        //   elapsedSeconds
+        // });
 
         setPriceInfo({
           currentPrice,

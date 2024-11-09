@@ -49,7 +49,7 @@ contract DutchAuction {
         priceDecreaseRate = _priceDecreaseRate;
         priceDecreaseInterval = _priceDecreaseInterval;
         auctionStartTime = block.timestamp;
-        auctionEndTime = auctionStartTime + _duration;
+        auctionEndTime = auctionStartTime.add(_duration);
         totalTokens = _totalTokens;
 
 
@@ -97,7 +97,7 @@ contract DutchAuction {
     // Function to buy tokens at the current price
     function buyTokens() external payable {
         console.log("Seller");
-        console.log("Balance of atk of contract",auctionToken.balanceOf(address(this)));
+        console.log("Balance of atk of contract", auctionToken.balanceOf(address(this)));
 
         console.log(seller);
         console.log(block.timestamp);
@@ -113,7 +113,7 @@ contract DutchAuction {
 
         uint tokensToBuy = msg.value.div(_currentPrice);
         console.log(tokensToBuy);
-        require(tokensToBuy > 0, "Insufficient funds to buy tokens");
+        // require(tokensToBuy > 0, "Insufficient funds to buy tokens");
 
         if (tokensToBuy >= totalTokens) {
             tokensToBuy = totalTokens;
@@ -130,10 +130,13 @@ contract DutchAuction {
         require(totalTokens >= 0, "Requested tokens exceed availability");
 
         emit TokensPurchased(msg.sender, msg.value, tokensToBuy);
-
+        console.log("Timestamp in buy", block.timestamp);
+        console.log("auctionEndTime in buy", auctionEndTime);
         if (totalTokens == 0 || block.timestamp >= auctionEndTime) {
-            finalizeAuction(_currentPrice);
+            finalizeAuction();
+            console.log("Auction Finalized");
         }
+
     }
 
     function resetAuction() external {
@@ -153,25 +156,38 @@ contract DutchAuction {
 
 
     // Finalize the auction, distribute tokens and refund excess funds
-    function finalizeAuction(uint fP) private {
+    function finalizeAuction() public payable{
         console.log("entered finalize auction");
+        console.log("Total Tokens", totalTokens);
+        console.log("CurrentTime", block.timestamp);
+        console.log("AuctionEndTime", auctionEndTime);
+        
+        // require(totalTokens == 0 || block.timestamp >= auctionEndTime, "End conditions not met");
         ended = true;
-        finalPrice = fP;
 
+        console.log("Fetching Price");
+        uint _finalPrice = currentPrice();
+        console.log("Fetched Current Price", _finalPrice);
         uint totalTokensSold = 0; // Track total tokens sold to bidders
         uint totalRevenue = 0; // Track total revenue for seller
+        console.log("Number of Bidders", bidderAddresses.length);
 
         for (uint i = 0; i < bidderAddresses.length; i++) {
-            console.log(i);
+            console.log("Handling user Number:" , i);
             Bidder storage bidder = bidders[bidderAddresses[i]];
-            console.log(bidder.investedAmount);
-            console.log(bidder.tokensOwned);
+            console.log(" user investedAmount:", bidder.investedAmount);
+            console.log(" user tokensOwned:", bidder.tokensOwned);
 
-            uint totalCost = bidder.tokensOwned.mul(finalPrice);
+            uint totalCost = bidder.tokensOwned.mul(_finalPrice);
             uint refund = bidder.investedAmount > totalCost ? bidder.investedAmount.sub(totalCost) : 0;
 
             if (refund > 0) {
+                console.log("Contract Balance Before", (address(this).balance));
+                console.log("Bidder Balance Before", (address(bidderAddresses[i]).balance));
+                console.log("Refund", refund);
                 payable(bidderAddresses[i]).transfer(refund);
+                console.log("Contract Balance After", (address(this).balance));
+                console.log("Bidder Balance After", (address(bidderAddresses[i]).balance));
             }
 
             console.log("Balance of atk of contract",auctionToken.balanceOf(address(this)));
@@ -186,8 +202,14 @@ contract DutchAuction {
         }
 
         // Transfer the total revenue to the seller
+        console.log("seller Address", seller);
+        console.log("Amount to seller", totalRevenue);
+        console.log("Seller Balance Before", (address(seller).balance));
+        console.log("Contract Balance Before", (address(this).balance));
         payable(seller).transfer(totalRevenue);
-        emit AuctionEnded(finalPrice);
+        console.log("Contract Balance After", (address(this).balance));
+        console.log("Seller Balance After", (address(seller).balance));
+        // emit AuctionEnded(_finalPrice);
     }
 
 }

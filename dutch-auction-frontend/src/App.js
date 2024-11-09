@@ -32,6 +32,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
   const [auctionContract, setAuctionContract] = useState();
+  const [sellerAccount, setSellerAccount] = useState();
+  const [diffTime, setErrorTime] = useState(0);
 
   // Define loadAuctionData outside useEffect
   async function loadAuctionData() {
@@ -58,11 +60,12 @@ function App() {
 
       // Calculate the remaining time
       const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-      const timeLeft = Math.max(auctionEndTime - currentTime, 0); // Ensure no negative values
+      console.log("diffTime", diffTime);
+      const timeLeft = auctionEndTime - currentTime; // Ensure no negative values
 
       // Account balances for display purposes
       const accounts = await web3.eth.getAccounts();
-      const sampleAccount = accounts[0];
+      const sampleAccount = sellerAccount;
       const balanceBeforeBN = await web3.eth.getBalance(sampleAccount);
       const contractBalanceBN = await web3.eth.getBalance(auctionContract.options.address);
 
@@ -83,6 +86,7 @@ function App() {
       // setAuctionEnded(timeLeft <= 0); // Auction end status
       const isAuctionEnded = timeLeft <= 0 || totalTokens === 0;
       setAuctionEnded(isAuctionEnded);
+      
     } catch (error) {
       console.error("Error loading contract data:", error.message || error);
       setNotifications(prev => [...prev, { 
@@ -96,13 +100,19 @@ function App() {
     setBids(prevBids => [...prevBids, newBid]);
   };
 
-  // Use loadAuctionData in useEffect
   useEffect(() => {
-
+    
     loadAuctionData();
     const timer = setInterval(loadAuctionData, 1000); // Refresh data every second
     return () => clearInterval(timer); // Cleanup on component unmount
   }, [auctionContract]);
+  useEffect(() => {
+    if(auctionEnded){
+      console.log(Date.now()/1000);
+      var tx = auctionContract.methods.finalizeAuction().call({ from: sellerAccount ,  gas: 10000000 });
+    }
+  }, [auctionEnded]);
+  // Use loadAuctionData in useEffect
 
   useEffect(() => {
     const initializeContract = async () => {
@@ -125,14 +135,14 @@ function App() {
 
 
   async function initializeAuction(formValues) {
-    console.log("initializeAuection called with values:", formValues);
+    console.log("initializeAuction called with values:", formValues);
     const { initialPrice, reservePrice, priceDecreaseInterval, duration, totalTokens } = formValues;
 
     try {
         setIsLoading(true);
-        const accounts = await web3.eth.getAccounts();
-        const sellerAccount = accounts[0]; // Use first connected account
-
+        // const accounts = await web3.eth.getAccounts();
+        // const sellerAccount = accounts[1]; // Use first connected account
+        // setSellerAccount(sellerAccount);
         // Convert ETH values to wei
         const initialPriceWei = web3.utils.toWei(initialPrice.toString(), 'ether');
         const reservePriceWei = web3.utils.toWei(reservePrice.toString(), 'ether');
@@ -189,6 +199,13 @@ function App() {
           totalTokens,
         ],
       }).send({ from: sellerAccount, gas: 6000000 });
+      var solidityTime = await auctionContract.methods.auctionStartTime().call();
+      solidityTime = Number(solidityTime);
+      var jsTime = Math.round(Date.now()/1000);
+      var errorTime = jsTime - solidityTime;
+      console.log("JSTIme", jsTime);
+      console.log("solidityTime", solidityTime);
+      setErrorTime(errorTime);
       console.log("Contract deployed");
             // Approve the DutchAuction contract to transfer tokens on behalf of the seller
         await tokenInstance.methods.approve(auctionContract.options.address, totalTokens)
@@ -204,6 +221,7 @@ function App() {
       
 
         console.log("Contract Deployed At:", auctionContract.options.address);
+        console.log("Auction Token Deployed At:", tokenAddress);
         
         // Verify initialization
 
@@ -281,7 +299,7 @@ function App() {
           />
           <Route
             path="/setup"
-            element={<SellerForm onSubmit={initializeAuction} onReset={resetAuction} isLoading={isLoading}/>}
+            element={<SellerForm onSubmit={initializeAuction} onReset={resetAuction} isLoading={isLoading} setSellerAccount={setSellerAccount}/>}
           />
         </Routes>
 

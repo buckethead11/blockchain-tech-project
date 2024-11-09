@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { web3, auctionContract } from '../web3';
 import { useWallet, WalletProvider } from '../context/WalletContext';
 
-const SellerForm = ({ onSubmit, onReset, isLoading }) => {
+const SellerForm = ({ onSubmit, onReset, isLoading, setSellerAccount }) => {
   const [formValues, setFormValues] = useState({
     initialPrice: '',
     reservePrice: '',
@@ -63,8 +63,9 @@ const SellerForm = ({ onSubmit, onReset, isLoading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setSellerAccount(account);
     console.log("Form submitted with values:", formValues);
-    
+    console.log("Seller account", account);
     const errors = validateForm(formValues);
     setFormErrors(errors);
     
