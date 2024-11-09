@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.2",
+    "hardhat": "^2.22.15",
+    "truffle": "^5.11.5",
+    "web3": "^4.14.0"
+  }
+}
