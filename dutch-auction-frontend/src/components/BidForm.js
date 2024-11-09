@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { web3, auctionContract } from '../web3';
+import MetaMaskLogin from './MetamaskLogin';
 
-const BidForm = ({ currentPrice, onBidPlaced }) => {
+const BidForm = ({ currentPrice, onBidPlaced, auctionContract, web3 }) => {
   const [bidAmount, setBidAmount] = useState('');
   const [message, setMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -12,6 +12,11 @@ const BidForm = ({ currentPrice, onBidPlaced }) => {
 
     try {
         setIsLoading(true);
+
+        if (!auctionContract) {
+          setMessage("No auction contract available");
+          return;
+      }
         
         // Get all the price parameters we need
         const initialPriceBN = await auctionContract.methods.initialPrice().call();

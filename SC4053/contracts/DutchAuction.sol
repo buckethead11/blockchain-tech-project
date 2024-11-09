@@ -97,6 +97,8 @@ contract DutchAuction {
     // Function to buy tokens at the current price
     function buyTokens() external payable {
         console.log("Seller");
+        console.log("Balance of atk of contract",auctionToken.balanceOf(address(this)));
+
         console.log(seller);
         console.log(block.timestamp);
         require(block.timestamp <= auctionEndTime, "Auction has already ended.");
@@ -176,6 +178,8 @@ contract DutchAuction {
 
             auctionToken.transfer(bidderAddresses[i], bidder.tokensOwned);
             emit TokensDistributed(bidderAddresses[i], bidder.tokensOwned, refund);
+
+            console.log("Balance of atk of contract after transfer",auctionToken.balanceOf(address(this)));
 
             totalTokensSold = totalTokensSold.add(bidder.tokensOwned);
             totalRevenue = totalRevenue.add(totalCost);

@@ -80,7 +80,9 @@ function App() {
       });
 
       setCurrentPrice(currentPrice);
-      setAuctionEnded(timeLeft <= 0); // Auction end status
+      // setAuctionEnded(timeLeft <= 0); // Auction end status
+      const isAuctionEnded = timeLeft <= 0 || totalTokens === 0;
+      setAuctionEnded(isAuctionEnded);
     } catch (error) {
       console.error("Error loading contract data:", error.message || error);
       setNotifications(prev => [...prev, { 
@@ -188,7 +190,16 @@ function App() {
         ],
       }).send({ from: sellerAccount, gas: 6000000 });
       console.log("Contract deployed");
+            // Approve the DutchAuction contract to transfer tokens on behalf of the seller
+        await tokenInstance.methods.approve(auctionContract.options.address, totalTokens)
+            .send({ from: sellerAccount });
         
+        // Add .methods. here too
+        await tokenInstance.methods.transfer(auctionContract.options.address, totalTokens)
+            .send({ from: sellerAccount });
+        
+      console.log("DutchAuction deployed with AuctionToken approved and tokens transferred.");
+
        setAuctionContract(auctionContract);
       
 
@@ -257,10 +268,10 @@ function App() {
                   <AuctionInfo auctionEnded={auctionEnded} auctionData={auctionData} />
                 </div>
                 <div className="bg-primary p-4 rounded-lg shadow">
-                  <PriceDisplay currentPrice={currentPrice} auctionContract={auctionContract?.options?.address} web3={web3}/>
+                  <PriceDisplay currentPrice={currentPrice} auctionContract={auctionContract} web3={web3}/>
                 </div>
                 <div className="bg-primary p-4 rounded-lg shadow">
-                  <BidForm currentPrice={currentPrice} onBidPlaced={handleBidPlaced}/>
+                  <BidForm currentPrice={currentPrice} onBidPlaced={handleBidPlaced} auctionContract={auctionContract} web3={web3}/>
                 </div>
                 <div className="col-span-2 bg-primary p-4 rounded-lg shadow">
                   <BidSummary bids={bids} />

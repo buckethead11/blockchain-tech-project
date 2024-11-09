@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { auctionContract, web3 } from '../web3';
 
-const PriceDisplay = () => {
+const PriceDisplay = ({auctionContract, web3}) => {
   const [priceInfo, setPriceInfo] = useState({
     currentPrice: 0,
     initialPrice: 0,
@@ -28,7 +27,13 @@ const PriceDisplay = () => {
   useEffect(() => {
     const updatePrice = async () => {
       try {
-        if (!auctionContract) return;
+        if (!auctionContract || !web3) 
+          {
+            console.log("Missing contract or Web3");
+            return;
+          }
+
+        console.log("Updating price from contract:", auctionContract.options.address);
     
         // Get contract values
         const initialPriceBN = await auctionContract.methods.initialPrice().call();
@@ -76,7 +81,7 @@ const PriceDisplay = () => {
     };
 
     // Update immediately and then every second
-    if (auctionContract) {
+    if (auctionContract && web3) {
       updatePrice();
       const interval = setInterval(updatePrice, 1000);
       return () => clearInterval(interval);
