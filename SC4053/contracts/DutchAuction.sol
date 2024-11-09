@@ -33,12 +33,32 @@ contract DutchAuction {
     event TokensDistributed(address bidder, uint tokensAllocated, uint amountRefunded);
     event AuctionEnded(uint finalPrice);
 
-    constructor(
-        address _tokenAddress
+     constructor(
+        address _tokenAddress,
+        uint _initialPrice,
+        uint _reservePrice,
+        uint _priceDecreaseRate,
+        uint _priceDecreaseInterval,
+        uint _duration,
+        uint _totalTokens
     ) {
         auctionToken = AuctionToken(_tokenAddress);
         seller = payable(msg.sender);
-        isInitialized = false;
+        initialPrice = _initialPrice;
+        reservePrice = _reservePrice;
+        priceDecreaseRate = _priceDecreaseRate;
+        priceDecreaseInterval = _priceDecreaseInterval;
+        auctionStartTime = block.timestamp;
+        auctionEndTime = auctionStartTime + _duration;
+        totalTokens = _totalTokens;
+
+
+        // // Transfer approved tokens from the seller to the contract
+        // require(
+        //     auctionToken.transferFrom(seller, address(this), totalTokens),
+        //     "Token transfer to contract failed"
+        // );
+
     }
 
     function initializeAuction(
