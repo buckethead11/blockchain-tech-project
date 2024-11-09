@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import MetaMaskLogin from './MetamaskLogin';
+import { useWallet } from '../context/WalletContext';
 
 const BidForm = ({ currentPrice, onBidPlaced, auctionContract, web3 }) => {
   const [bidAmount, setBidAmount] = useState('');
   const [message, setMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { account, isConnected } = useWallet();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!isConnected) {
+      setMessage("Please connect your wallet first");
+      return;
+    }
+
     const bid = parseFloat(bidAmount);
 
     try {
@@ -16,7 +23,7 @@ const BidForm = ({ currentPrice, onBidPlaced, auctionContract, web3 }) => {
         if (!auctionContract) {
           setMessage("No auction contract available");
           return;
-      }
+        }
         
         // Get all the price parameters we need
         const initialPriceBN = await auctionContract.methods.initialPrice().call();
@@ -49,40 +56,41 @@ const BidForm = ({ currentPrice, onBidPlaced, auctionContract, web3 }) => {
         });
 
         if (bid < exactCurrentPrice) {
-            setMessage(`Error: Bid amount (${bid} ETH) is less than current price (${exactCurrentPrice.toFixed(4)} ETH)`);
-            return;
-        }
+          setMessage(`Error: Bid amount (${bid} ETH) is less than current price (${exactCurrentPrice.toFixed(4)} ETH)`);
+          return;
+      }
 
-        const accounts = await web3.eth.getAccounts();
-        const bidderAccount = accounts[0];
-        const bidAmountWei = web3.utils.toWei(bidAmount.toString(), 'ether');
+      const bidAmountWei = web3.utils.toWei(bidAmount.toString(), 'ether');
 
-        const tx = await auctionContract.methods.buyTokens().send({
-            from: bidderAccount,
-            value: bidAmountWei,
-            gas: 3000000
-        });
+      const tx = await auctionContract.methods.buyTokens().send({
+          from: account, // Use connected MetaMask account
+          value: bidAmountWei,
+          gas: 3000000
+      });
 
-        // Use the exact calculated price
-        onBidPlaced({
-            address: bidderAccount,
-            amount: bid,
-            bidPrice: exactCurrentPrice,
-            timestamp: Date.now()
-        });
+      // Use the exact calculated price
+      onBidPlaced({
+          address: account, // Use connected MetaMask account
+          amount: bid,
+          bidPrice: exactCurrentPrice,
+          timestamp: Date.now()
+      });
 
-        setMessage(`Success! Your bid of ${bid} ETH has been placed at price ${exactCurrentPrice.toFixed(4)} ETH`);
-        setBidAmount('');
-    } catch (error) {
+      setMessage(`Success! Your bid of ${bid} ETH has been placed at price ${exactCurrentPrice.toFixed(4)} ETH`);
+      setBidAmount('');
+  } catch (error) {
         // ... error handling ...
     } finally {
         setIsLoading(false);
     }
 };
 
-  return (
-    <div className="p-4 bg-background rounded-lg text-white">
-      <h2 className="text-2xl font-bold">Place Your Bid</h2>
+return (
+  <div className="p-4 bg-background rounded-lg text-white">
+    <h2 className="text-2xl font-bold">Place Your Bid</h2>
+    {!isConnected ? (
+      <p className="mt-4 text-red-500">Please connect your wallet to place a bid</p>
+    ) : (
       <form onSubmit={handleSubmit} className="mt-4">
         <input
           type="number"
@@ -102,9 +110,10 @@ const BidForm = ({ currentPrice, onBidPlaced, auctionContract, web3 }) => {
           {isLoading ? 'Processing...' : 'Submit Bid'}
         </button>
       </form>
-      {message && <p className="mt-4">{message}</p>}
-    </div>
-  );
+    )}
+    {message && <p className="mt-4">{message}</p>}
+  </div>
+);
 };
 
 export default BidForm;
