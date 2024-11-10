@@ -8,6 +8,7 @@ import BidSummary from './components/BidSummary';
 import Notifications from './components/Notifications';
 import { WalletProvider } from './context/WalletContext';
 import MetaMaskLogin from './components/MetamaskLogin';
+import TokenBalance from './components/TokenBalance';
 import Modal from './components/Modal';
 import SellerForm from './components/SellerForm';
 import Web3 from 'web3';
@@ -123,6 +124,50 @@ function App() {
   }, [auctionContract]);
 
 
+// Add this after your other useEffects
+useEffect(() => {
+  const checkAuctionEnd = async () => {
+    if (!auctionContract || !web3.eth) return;
+
+    try {
+      const isEnded = await auctionContract.methods.ended().call();
+      const timeLeft = auctionData.timeLeft;
+      const totalTokens = auctionData.totalSupply;
+
+      console.log("Auction status check:", {
+        isEnded,
+        timeLeft,
+        totalTokens,
+        auctionEnded
+      });
+
+      // If auction conditions are met, just update the UI
+      if (timeLeft <= 0 || totalTokens === 0) {
+        console.log("Auction end conditions met");
+        setAuctionEnded(true);
+        
+        // Refresh data
+        await loadAuctionData();
+
+        // Show token distribution modal if needed
+        setShowDistribution(true);
+      }
+    } catch (error) {
+      console.error("Error checking auction end:", error);
+    }
+  };
+
+  // Check every second if auction has ended
+  const timer = setInterval(checkAuctionEnd, 1000);
+  return () => clearInterval(timer);
+}, [
+  auctionContract,
+  auctionData.timeLeft,
+  auctionData.totalSupply,
+  auctionEnded,
+  loadAuctionData,
+  web3.eth
+]);
 
   async function initializeAuction(formValues) {
     console.log("initializeAuection called with values:", formValues);
@@ -263,21 +308,32 @@ function App() {
           <Route
             path="/"
             element={
-              <div className="flex-1 p-4 grid grid-cols-3 gap-4 h-[calc(100vh-4rem)]">
-                <div className="col-span-2 bg-primary p-4 rounded-lg shadow">
-                  <AuctionInfo auctionEnded={auctionEnded} auctionData={auctionData} />
-                </div>
-                <div className="bg-primary p-4 rounded-lg shadow">
-                  <PriceDisplay currentPrice={currentPrice} auctionContract={auctionContract} web3={web3}/>
-                </div>
-                <div className="bg-primary p-4 rounded-lg shadow">
-                  <BidForm currentPrice={currentPrice} onBidPlaced={handleBidPlaced} auctionContract={auctionContract} web3={web3}/>
-                </div>
-                <div className="col-span-2 bg-primary p-4 rounded-lg shadow">
-                  <BidSummary bids={bids} />
-                </div>
-              </div>
-            }
+// In App.js
+<div className="flex-1 p-4 grid grid-cols-3 gap-4 h-[calc(100vh-4rem)]">
+    <div className="col-span-2 bg-primary p-4 rounded-lg shadow">
+        <AuctionInfo auctionEnded={auctionEnded} auctionData={auctionData} />
+    </div>
+    <div className="bg-primary p-4 rounded-lg shadow">
+        <PriceDisplay currentPrice={currentPrice} auctionContract={auctionContract} web3={web3}/>
+    </div>
+    <div className="bg-primary p-4 rounded-lg shadow">
+        <BidForm 
+            currentPrice={currentPrice} 
+            onBidPlaced={handleBidPlaced}
+            auctionContract={auctionContract}
+            web3={web3}
+        />
+    </div>
+    {/* <div className="bg-primary p-4 rounded-lg shadow">
+        <TokenBalance 
+            web3={web3}
+            auctionContract={auctionContract}
+        />
+    </div> */}
+    <div className="col-span-2 bg-primary p-4 rounded-lg shadow">
+        <BidSummary bids={bids} />
+    </div>
+</div>            }
           />
           <Route
             path="/setup"
@@ -287,9 +343,10 @@ function App() {
 
         <Modal isOpen={showDistribution} onClose={() => setShowDistribution(false)}>
           <TokenDistribution 
-            auctionEnded={auctionEnded} 
-            bids={bids} 
-            tokenSupply={auctionData.totalSupply} 
+            auctionEnded={auctionEnded}
+            auctionContract={auctionContract}
+            web3={web3}
+            TokenABI={AuctionTokenABI.abi}
           />
         </Modal>
       </div>

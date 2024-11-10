@@ -154,39 +154,76 @@ contract DutchAuction {
 
     // Finalize the auction, distribute tokens and refund excess funds
     function finalizeAuction(uint fP) private {
-        console.log("entered finalize auction");
+        console.log("=== FINALIZE AUCTION START ===");
+        console.log("Initial contract token balance:", auctionToken.balanceOf(address(this)));
+        
         ended = true;
         finalPrice = fP;
 
-        uint totalTokensSold = 0; // Track total tokens sold to bidders
-        uint totalRevenue = 0; // Track total revenue for seller
+        uint totalTokensSold = 0;
+        uint totalRevenue = 0;
 
         for (uint i = 0; i < bidderAddresses.length; i++) {
-            console.log(i);
+            console.log("Processing bidder", i);
             Bidder storage bidder = bidders[bidderAddresses[i]];
-            console.log(bidder.investedAmount);
-            console.log(bidder.tokensOwned);
+            
+            console.log("Bidder address:", bidderAddresses[i]);
+            console.log("Invested amount:", bidder.investedAmount);
+            console.log("Tokens to receive:", bidder.tokensOwned);
 
+            // Calculate costs and refunds
             uint totalCost = bidder.tokensOwned.mul(finalPrice);
-            uint refund = bidder.investedAmount > totalCost ? bidder.investedAmount.sub(totalCost) : 0;
+            uint refund = bidder.investedAmount > totalCost ? 
+                bidder.investedAmount.sub(totalCost) : 0;
 
+            // Process refund if needed
             if (refund > 0) {
+                console.log("Refunding amount:", refund);
                 payable(bidderAddresses[i]).transfer(refund);
             }
 
-            console.log("Balance of atk of contract",auctionToken.balanceOf(address(this)));
+            // Check balances before transfer
+            uint contractBalanceBefore = auctionToken.balanceOf(address(this));
+            uint bidderBalanceBefore = auctionToken.balanceOf(bidderAddresses[i]);
+            console.log("Contract balance before transfer:", contractBalanceBefore);
+            console.log("Bidder balance before transfer:", bidderBalanceBefore);
 
-            auctionToken.transfer(bidderAddresses[i], bidder.tokensOwned);
+            // Attempt token transfer
+            require(
+                auctionToken.transfer(bidderAddresses[i], bidder.tokensOwned),
+                "Token transfer failed"
+            );
+
+            // Verify transfer success
+            uint contractBalanceAfter = auctionToken.balanceOf(address(this));
+            uint bidderBalanceAfter = auctionToken.balanceOf(bidderAddresses[i]);
+            console.log("Contract balance after transfer:", contractBalanceAfter);
+            console.log("Bidder balance after transfer:", bidderBalanceAfter);
+            console.log("Balance change:", bidderBalanceAfter.sub(bidderBalanceBefore));
+
+            // Verify correct amount was transferred
+            require(
+                bidderBalanceAfter.sub(bidderBalanceBefore) == bidder.tokensOwned,
+                "Token transfer amount mismatch"
+            );
+
             emit TokensDistributed(bidderAddresses[i], bidder.tokensOwned, refund);
-
-            console.log("Balance of atk of contract after transfer",auctionToken.balanceOf(address(this)));
 
             totalTokensSold = totalTokensSold.add(bidder.tokensOwned);
             totalRevenue = totalRevenue.add(totalCost);
         }
 
-        // Transfer the total revenue to the seller
-        payable(seller).transfer(totalRevenue);
+        console.log("=== AUCTION SUMMARY ===");
+        console.log("Total tokens sold:", totalTokensSold);
+        console.log("Total revenue:", totalRevenue);
+        console.log("Final contract token balance:", auctionToken.balanceOf(address(this)));
+
+        // Transfer revenue to seller
+        if (totalRevenue > 0) {
+            console.log("Transferring revenue to seller:", totalRevenue);
+            payable(seller).transfer(totalRevenue);
+        }
+
         emit AuctionEnded(finalPrice);
     }
 
