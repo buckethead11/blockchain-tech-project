@@ -7,4 +7,8 @@ contract AuctionToken is ERC20Burnable {
     constructor(uint256 initialSupply) ERC20("AuctionToken", "ATK") {
         _mint(msg.sender, initialSupply);
     }
+
+    function decimals() public pure override returns (uint8) {
+        return 0;
+    }
 }
